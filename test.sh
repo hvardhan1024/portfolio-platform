@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# test.sh: Script to test MySQL RDS and S3 connectivity using .env configuration without awscli
+# test.sh: Script to test PostgreSQL RDS and S3 connectivity using .env configuration without awscli
 
 # Exit on any error
 set -e
@@ -28,33 +28,34 @@ for var in "${required_vars[@]}"; do
 done
 
 # Extract database connection details from DATABASE_URL
-# Expected format: mysql://username:password@host:port/dbname
-if [[ $DATABASE_URL =~ mysql://([^:]+):([^@]+)@([^:]+):([0-9]+)/(.+) ]]; then
+# Expected format: postgresql://username:password@host:port/dbname
+if [[ $DATABASE_URL =~ postgresql://([^:]+):([^@]+)@([^:]+):([0-9]+)/(.+) ]]; then
     DB_USER="${BASH_REMATCH[1]}"
     DB_PASSWORD="${BASH_REMATCH[2]}"
     DB_HOST="${BASH_REMATCH[3]}"
     DB_PORT="${BASH_REMATCH[4]}"
     DB_NAME="${BASH_REMATCH[5]}"
 else
-    echo "❌ Error: Invalid DATABASE_URL format in .env (expected mysql://username:password@host:port/dbname)"
+    echo "❌ Error: Invalid DATABASE_URL format in .env (expected postgresql://username:password@host:port/dbname)"
     exit 1
 fi
 
-# Function to test MySQL RDS connectivity
+# Function to test PostgreSQL RDS connectivity
 test_rds() {
-    echo "🔍 Testing MySQL RDS connectivity to: $DB_HOST:$DB_PORT/$DB_NAME"
+    echo "🔍 Testing PostgreSQL RDS connectivity to: $DB_HOST:$DB_PORT/$DB_NAME"
 
-    # Check if mysql client is installed
-    if ! command -v mysql &> /dev/null; then
-        echo "❌ Error: mysql client is not installed. Install it using 'sudo apt install mysql-client' or equivalent."
+    # Check if psql is installed
+    if ! command -v psql &> /dev/null; then
+        echo "❌ Error: psql is not installed. Install it using 'sudo apt install postgresql-client' or equivalent."
         return 1
     }
 
     # Test database connection and execute a simple query
-    if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1;" "$DB_NAME" &> /dev/null; then
-        echo "✅ MySQL RDS connection successful and query executed"
+    export PGPASSWORD="$DB_PASSWORD"
+    if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" &> /dev/null; then
+        echo "✅ PostgreSQL RDS connection successful and query executed"
     else
-        echo "❌ Error: Failed to connect to MySQL RDS or execute query. Check DATABASE_URL, network, or RDS security group."
+        echo "❌ Error: Failed to connect to PostgreSQL RDS or execute query. Check DATABASE_URL, network, or RDS security group."
         return 1
     fi
 }
@@ -69,7 +70,13 @@ test_s3() {
         return 1
     }
 
-    # Try a simple GET request to list bucket contents (assuming public read access or pre-signed URL)
+    # Check if openssl is installed
+    if ! command -v openssl &> /dev/null; then
+        echo "❌ Error: openssl is not installed. Install it using 'sudo apt install openssl' or equivalent."
+        return 1
+    }
+
+    # Try a simple GET request to list bucket contents (assuming public read access)
     S3_URL="https://$S3_BUCKET.s3.$AWS_REGION.amazonaws.com/"
     if curl -s -f "$S3_URL" > /dev/null; then
         echo "✅ S3 bucket '$S3_BUCKET' is accessible via public read"
@@ -108,7 +115,7 @@ test_s3() {
         fi
     fi
 
-    # Test S3 upload (optional, requires signed PUT request)
+    # Test S3 upload (requires signed PUT request)
     TEST_FILE="test-upload-$(date +%s).txt"
     echo "Test file for S3 upload" > "$TEST_FILE"
     TEST_KEY="test/$TEST_FILE"
@@ -136,7 +143,7 @@ test_s3() {
 }
 
 # Main execution
-echo "=== Starting S3 and MySQL RDS Tests ==="
+echo "=== Starting S3 and PostgreSQL RDS Tests ==="
 
 # Run S3 test
 test_s3
