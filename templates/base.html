@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Portfolio App{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "github-bg": "#0d1117",
+                        "github-card": "#161b22",
+                        "github-border": "#30363d",
+                        "github-text": "#f0f6fc",
+                        "github-text-secondary": "#8b949e",
+                        "github-accent": "#58a6ff",
+                        "github-success": "#3fb950",
+                        "github-warning": "#d29922",
+                        "github-danger": "#f85149",
+                    },
+                    backdropBlur: { xs: "2px" },
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body class="min-h-screen text-github-text font-sans bg-github-bg">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-github-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold text-github-accent">Portfolio App</h1>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="/" class="text-github-text hover:text-github-accent transition-colors duration-200 px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'index' %}bg-github-accent bg-opacity-20{% endif %}">Home</a>
+                    <a href="/register" class="text-github-text hover:text-github-accent transition-colors duration-200 px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'register' %}bg-github-accent bg-opacity-20{% endif %}">Register</a>
+                    <a href="/login" class="text-github-text hover:text-github-accent transition-colors duration-200 px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'login' %}bg-github-accent bg-opacity-20{% endif %}">Login</a>
+                    <a href="/dashboard" class="text-github-text hover:text-github-accent transition-colors duration-200 px-3 py-2 rounded-md text-sm font-medium {% if request.endpoint == 'dashboard' %}bg-github-accent bg-opacity-20{% endif %}">Dashboard</a>
+                </div>
+                <!-- Mobile menu button -->
+                <div class="md:hidden">
+                    <button type="button" class="glass-button text-github-text hover:text-github-accent p-2 rounded-md">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <!-- Mobile menu -->
+            <div class="md:hidden border-t border-github-border mt-2 pt-2 pb-3 space-y-1 hidden">
+                <a href="/" class="block text-github-text hover:text-github-accent px-3 py-2 rounded-md text-base font-medium">Home</a>
+                <a href="/register" class="block text-github-text hover:text-github-accent px-3 py-2 rounded-md text-base font-medium">Register</a>
+                <a href="/login" class="block text-github-text hover:text-github-accent px-3 py-2 rounded-md text-base font-medium">Login</a>
+                <a href="/dashboard" class="block text-github-text hover:text-github-accent px-3 py-2 rounded-md text-base font-medium">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-20 pb-12"> <!-- Added pt-20 to account for navbar height -->
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <div class="fixed bottom-4 right-4 z-50 space-y-2">
+        {% for message in messages %}
+        <div class="glass-danger rounded-lg p-4 shadow-xl max-w-sm">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 text-github-danger mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="text-github-danger font-medium">{{ message }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+</body>
+</html>
