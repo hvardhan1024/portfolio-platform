@@ -14,7 +14,15 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+
+# Build database URI from separate components
+db_host = os.getenv('DB_HOST')
+db_port = os.getenv('DB_PORT', '5432')
+db_user = os.getenv('DB_USER')
+db_password = os.getenv('DB_PASSWORD')
+db_name = os.getenv('DB_NAME')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('UPLOAD_MAX_SIZE', 16777216))
 
@@ -231,31 +239,31 @@ def health_check():
     try:
         db.session.execute(text("SELECT 1"))
         db.session.commit()
-        results['rds'] = '✅ RDS is connected and responsive.'
+        results['rds'] = 'RDS is connected and responsive.'
     except Exception as e:
-        results['rds'] = f'❌ RDS check failed: {str(e)}'
+        results['rds'] = f'RDS check failed: {str(e)}'
 
     try:
         if not s3_client:
-            results['s3'] = "❌ S3 client not initialized"
+            results['s3'] = "S3 client not initialized"
         elif not s3_bucket:
-            results['s3'] = "❌ S3 bucket name not configured"
+            results['s3'] = "S3 bucket name not configured"
         else:
             s3_client.list_objects_v2(Bucket=s3_bucket, MaxKeys=1)
-            results['s3'] = f"✅ S3 bucket '{s3_bucket}' is accessible."
+            results['s3'] = f"S3 bucket '{s3_bucket}' is accessible."
     except ClientError as e:
-        results['s3'] = f"❌ S3 access failed: {e.response['Error']['Message']}"
+        results['s3'] = f"S3 access failed: {e.response['Error']['Message']}"
     except Exception as e:
-        results['s3'] = f"❌ S3 access failed: {str(e)}"
+        results['s3'] = f"S3 access failed: {str(e)}"
 
     try:
         import requests
         instance_id = requests.get("http://169.254.169.254/latest/meta-data/instance-id", timeout=2).text
         az = requests.get("http://169.254.169.254/latest/meta-data/placement/availability-zone", timeout=2).text
         public_ip = requests.get("http://169.254.169.254/latest/meta-data/public-ipv4", timeout=2).text
-        results['ec2'] = f"✅ EC2 instance running (ID: {instance_id}, AZ: {az}, Public IP: {public_ip})"
+        results['ec2'] = f"EC2 instance running (ID: {instance_id}, AZ: {az}, Public IP: {public_ip})"
     except Exception as e:
-        results['ec2'] = f"⚠️ EC2 metadata access failed: {str(e)}"
+        results['ec2'] = f"EC2 metadata access failed: {str(e)}"
 
     print("\n--- Health Check Summary ---")
     for service, status in results.items():
@@ -267,9 +275,9 @@ def health_check():
 with app.app_context():
     try:
         db.create_all()
-        print("✅ Database tables created successfully")
+        print("Database tables created successfully")
     except Exception as e:
-        print(f"❌ Failed to create database tables: {e}")
+        print(f"Failed to create database tables: {e}")
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
