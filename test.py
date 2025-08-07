@@ -1,201 +1,144 @@
 #!/usr/bin/env python3
 
-"""
-AWS Services Connectivity Test Script
-Tests RDS PostgreSQL and S3 bucket connectivity for Flask app deployment
-"""
-
 import os
 import sys
-import psycopg2
 import boto3
-from botocore.exceptions import ClientError, NoCredentialsError
+import psycopg2
 from dotenv import load_dotenv
-from urllib.parse import urlparse
+from botocore.exceptions import ClientError
 
-def load_environment():
-    """Load environment variables from .env file"""
-    if not os.path.exists('.env'):
-        print("❌ .env file not found. Please create it with your AWS and database credentials.")
-        print("Required variables: DATABASE_URL, AWS_REGION, S3_BUCKET")
-        print("Optional: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (if not using IAM roles)")
-        return False
+def test_environment():
+    """Test AWS RDS and S3 connectivity"""
 
+    # Load environment variables
     load_dotenv()
-    return True
 
-def test_rds_connection():
-    """Test PostgreSQL RDS connection"""
-    print("Testing RDS PostgreSQL connection...")
+    print("=" * 50)
+    print("AWS SERVICES CONNECTIVITY TEST")
+    print("=" * 50)
 
-    database_url = os.getenv('DATABASE_URL')
-    if not database_url:
-        print("❌ DATABASE_URL not found in environment variables")
+    # Check if all required environment variables are set
+    required_vars = [
+        'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'S3_BUCKET',
+        'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'
+    ]
+
+    missing_vars = []
+    for var in required_vars:
+        if not os.getenv(var):
+            missing_vars.append(var)
+
+    if missing_vars:
+        print("ERROR: Missing environment variables:")
+        for var in missing_vars:
+            print(f"  - {var}")
+        print("\nPlease check your .env file")
         return False
 
-    try:
-        # Parse DATABASE_URL
-        parsed = urlparse(database_url)
+    print("Environment variables check: PASSED")
+    print()
 
-        # Connect to PostgreSQL
+    # Test RDS Connection
+    print("Testing RDS PostgreSQL connection...")
+    try:
+        db_host = os.getenv('DB_HOST')
+        db_port = os.getenv('DB_PORT', '5432')
+        db_user = os.getenv('DB_USER')
+        db_password = os.getenv('DB_PASSWORD')
+        db_name = os.getenv('DB_NAME')
+
         connection = psycopg2.connect(
-            host=parsed.hostname,
-            port=parsed.port or 5432,
-            database=parsed.path[1:] if parsed.path else 'postgres',
-            user=parsed.username,
-            password=parsed.password
+            host=db_host,
+            port=db_port,
+            user=db_user,
+            password=db_password,
+            database=db_name
         )
 
-        # Test query
         cursor = connection.cursor()
         cursor.execute("SELECT version();")
-        version = cursor.fetchone()[0]
-
+        db_version = cursor.fetchone()[0]
         cursor.close()
         connection.close()
 
-        print(f"✅ RDS PostgreSQL connection successful")
-        print(f"   Database version: {version.split(',')[0]}")
-        return True
+        print(f"RDS Connection: SUCCESS")
+        print(f"Database Version: {db_version}")
+        print()
 
-    except psycopg2.Error as e:
-        print(f"❌ RDS PostgreSQL connection failed: {e}")
-        return False
     except Exception as e:
-        print(f"❌ RDS connection error: {e}")
+        print(f"RDS Connection: FAILED")
+        print(f"Error: {str(e)}")
+        print()
         return False
 
-def test_s3_access():
-    """Test S3 bucket access"""
+    # Test S3 Connection
     print("Testing S3 bucket access...")
-
-    aws_region = os.getenv('AWS_REGION')
-    s3_bucket = os.getenv('S3_BUCKET')
-
-    if not aws_region:
-        print("❌ AWS_REGION not found in environment variables")
-        return False
-
-    if not s3_bucket:
-        print("❌ S3_BUCKET not found in environment variables")
-        return False
-
     try:
-        # Initialize S3 client
         aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
         aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        aws_region = os.getenv('AWS_REGION')
+        s3_bucket = os.getenv('S3_BUCKET')
 
-        if aws_access_key_id and aws_secret_access_key:
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key,
-                region_name=aws_region
-            )
-            print("   Using explicit AWS credentials")
-        else:
-            s3_client = boto3.client('s3', region_name=aws_region)
-            print("   Using IAM role credentials")
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=aws_region
+        )
 
         # Test bucket access
         response = s3_client.list_objects_v2(Bucket=s3_bucket, MaxKeys=1)
 
-        print(f"✅ S3 bucket '{s3_bucket}' is accessible")
-        print(f"   Region: {aws_region}")
+        print(f"S3 Connection: SUCCESS")
+        print(f"Bucket: {s3_bucket}")
+        print(f"Region: {aws_region}")
+        print()
 
-        # Check bucket permissions for upload
-        try:
-            s3_client.put_object(
-                Bucket=s3_bucket,
-                Key='test-connectivity.txt',
-                Body=b'Test file for connectivity check',
-                ACL='public-read'
-            )
-            s3_client.delete_object(Bucket=s3_bucket, Key='test-connectivity.txt')
-            print("   Upload/delete permissions: ✅")
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'AccessDenied':
-                print("   Upload permissions: ❌ (Access Denied)")
-            else:
-                print(f"   Upload test error: {e.response['Error']['Message']}")
-
-        return True
-
-    except NoCredentialsError:
-        print("❌ AWS credentials not found. Configure AWS credentials or IAM role.")
-        return False
     except ClientError as e:
         error_code = e.response['Error']['Code']
-        error_msg = e.response['Error']['Message']
-        print(f"❌ S3 access failed ({error_code}): {error_msg}")
+        if error_code == 'NoSuchBucket':
+            print(f"S3 Connection: FAILED")
+            print(f"Error: Bucket '{s3_bucket}' does not exist")
+        else:
+            print(f"S3 Connection: FAILED")
+            print(f"Error: {e.response['Error']['Message']}")
+        print()
         return False
     except Exception as e:
-        print(f"❌ S3 access error: {e}")
+        print(f"S3 Connection: FAILED")
+        print(f"Error: {str(e)}")
+        print()
         return False
 
-def test_ec2_metadata():
-    """Test EC2 instance metadata (optional)"""
-    print("Testing EC2 instance metadata...")
-
+    # Test EC2 metadata (optional - only works on EC2)
+    print("Testing EC2 metadata access...")
     try:
         import requests
+        instance_id = requests.get("http://169.254.169.254/latest/meta-data/instance-id", timeout=2).text
+        az = requests.get("http://169.254.169.254/latest/meta-data/placement/availability-zone", timeout=2).text
 
-        # Test metadata service
-        instance_id = requests.get(
-            "http://169.254.169.254/latest/meta-data/instance-id",
-            timeout=3
-        ).text
-
-        az = requests.get(
-            "http://169.254.169.254/latest/meta-data/placement/availability-zone",
-            timeout=3
-        ).text
-
-        print(f"✅ Running on EC2 instance: {instance_id}")
-        print(f"   Availability Zone: {az}")
-        return True
+        print(f"EC2 Metadata: SUCCESS")
+        print(f"Instance ID: {instance_id}")
+        print(f"Availability Zone: {az}")
+        print()
 
     except Exception as e:
-        print(f"⚠️  EC2 metadata not accessible (not running on EC2 or metadata disabled)")
-        return False
+        print(f"EC2 Metadata: Not available (not running on EC2 or network issue)")
+        print()
+
+    print("=" * 50)
+    print("ALL TESTS COMPLETED SUCCESSFULLY!")
+    print("Your Flask app should be able to connect to AWS services.")
+    print("=" * 50)
+
+    return True
 
 def main():
-    """Main test function"""
-    print("=" * 60)
-    print("AWS Services Connectivity Test")
-    print("=" * 60)
-
-    # Load environment variables
-    if not load_environment():
+    if not test_environment():
+        print("Some tests failed. Please check your configuration.")
         sys.exit(1)
-
-    results = []
-
-    # Test RDS
-    results.append(test_rds_connection())
-    print()
-
-    # Test S3
-    results.append(test_s3_access())
-    print()
-
-    # Test EC2 metadata (optional)
-    test_ec2_metadata()
-    print()
-
-    # Summary
-    print("=" * 60)
-    print("Test Summary:")
-    print(f"RDS PostgreSQL: {'✅ PASS' if results[0] else '❌ FAIL'}")
-    print(f"S3 Access: {'✅ PASS' if results[1] else '❌ FAIL'}")
-    print("=" * 60)
-
-    if all(results):
-        print("🎉 All critical tests passed! Your Flask app should work properly.")
-        sys.exit(0)
     else:
-        print("❌ Some tests failed. Please check your configuration.")
-        sys.exit(1)
+        print("All tests passed! You can now run your Flask app.")
 
 if __name__ == "__main__":
     main()
