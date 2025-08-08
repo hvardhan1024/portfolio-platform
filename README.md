@@ -1,5 +1,8 @@
 # AWS Deployment Guide - Flask Portfolio App
 
+<img width="1141" height="798" alt="image" src="https://github.com/user-attachments/assets/edf98cdf-b300-4d47-8747-55e6afc30a20" />
+
+
 ## Introduction
 
 This project is a Flask-based web application that allows users to create and manage their portfolios. Users can register, login, upload profile images and resumes, and showcase their projects. The application demonstrates the integration of multiple AWS services in a cloud-based architecture.
