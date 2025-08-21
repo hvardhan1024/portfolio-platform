@@ -216,6 +216,29 @@ source venv/bin/activate
 ```bash
 # Create .env file
 nano .env
+
+#contents
+# Flask Configuration
+SECRET_KEY=your-secret-key-here
+FLASK_DEBUG=False
+PORT=5000
+
+# AWS Configuration
+AWS_ACCESS_KEY_ID=your-aws-access-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+AWS_REGION=ap-south-1
+S3_BUCKET=your-bucket-name
+
+# RDS PostgreSQL Configuration
+DB_HOST=your-rds-endpoint.rds.amazonaws.com
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your-db-password
+DB_NAME=postgres
+
+# Upload Configuration
+UPLOAD_MAX_SIZE=16777216
+
 ```
 
 Add the following content (replace with your actual values):
